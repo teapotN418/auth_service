@@ -17,7 +17,6 @@ async def get_refresh_token_user(request: Request):
         payload = await security_obj.refresh_token_required(request)
         request.state.sub = payload.sub
         request.state.role = payload.model_dump().get("role")
-        return payload
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

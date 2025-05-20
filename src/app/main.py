@@ -5,10 +5,9 @@ import src.app.api.endpoints as endpoints
 from src.app.core.config import settings
 
 tags_metadata = [
-    {"name": "no-auth", "description": "Operathions for everyone"},
-    {"name": "auth", "description": "Operations for all authenticated"},
-    {"name": "user", "description": "Operations for users"},
-    {"name": "admin", "description": "Operations for admins"},
+    {"name": "no-auth", "description": "Operations for everyone"},
+    {"name": "authenticated", "description": "Operations for all authenticated"},
+    {"name": "admin", "description": "Operations for admins only"},
 ]
 
 app = FastAPI(
