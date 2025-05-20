@@ -1,15 +1,21 @@
-from pydantic import BaseModel, EmailStr
+from enum import Enum
+from pydantic import BaseModel, EmailStr, Field
 
-class UserAuth(BaseModel):
-    email: EmailStr = "test@mail.ru"
-    password: str = "12345"
+class Role(str, Enum):
+    user = "user"
+    admin = "admin"
+
+class Password(BaseModel):
+    password: str = Field(min_length=3, default="12345")
 
 class UserBase(BaseModel):
     email: EmailStr = "test@mail.ru"
-    role: str = "user"
 
-class UserCreate(UserBase):
-    password: str = "12345"
+class UserAuth(Password, UserBase):
+    pass
 
-class UserSchema(UserBase):
+class UserCreate(UserAuth):
+    role: Role = Role.user
+
+class UserSchema(UserCreate):
     id: int

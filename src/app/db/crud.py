@@ -1,7 +1,7 @@
 from src.app.api.schemas import UserCreate
 from src.app.core import security
 from src.app.db.models import UsersORM
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, update
 
 from src.app.db.setup import async_session_factory, async_engine, Base
 
@@ -45,4 +45,14 @@ async def delete_user(user: UsersORM):
         query = delete(UsersORM).where(UsersORM.id == user.id)
         await session.execute(query)
         await session.commit()
+        return None
+    
+async def update_user(user: UsersORM, new_password: str):
+    async with async_session_factory() as session:
+        user_instance = await session.get(UsersORM, user.id)
+        print(f"\n\n{user_instance.hashed_password}\n\n")
+        user_instance.hashed_password = await security.get_password_hash(new_password)
+        print(f"\n\n{user_instance.hashed_password}\n\n")
+        await session.commit()
+        await session.refresh(user_instance)
         return None

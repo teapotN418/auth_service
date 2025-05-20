@@ -29,7 +29,7 @@ async def authenticate_user(email: str, password: str):
     if not user:
         return False
     
-    if not verify_password(password, user.hashed_password):
+    if not await verify_password(password, user.hashed_password):
         return False
     
     return user
@@ -42,10 +42,9 @@ async def create_tokens(email: str, data: dict):
 
     return (access_token, refresh_token)
 
-async def refresh_access_token(email: str, data:dict):
+async def refresh_access_token(email: str, data: dict):
     to_encode = data.copy()
     
     access_token = security_obj.create_access_token(email, data = to_encode, fresh=False)
     
     return access_token
-

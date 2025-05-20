@@ -9,11 +9,10 @@ from fastapi import HTTPException
 from fastapi import status
 from fastapi import Response
 
-#from app.api.deps import get_current_user
-from src.app.api.schemas import UserCreate, UserSchema, UserAuth
+from src.app.api.schemas import UserAuth, UserCreate, UserSchema, Role, Password
 from src.app.core import security
 from src.app.db import crud
-from src.app.api.deps import get_current_user
+from src.app.api.deps import require_access, require_fresh_access, require_refresh, require_role
 
 router = APIRouter()
 
@@ -29,15 +28,17 @@ async def create_tables():
     tags=["no-auth"],
 )
 async def register(
-    user: UserCreate
+    user: UserAuth
 ):
     db_user = await crud.get_user_by_email(email=user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    result = await crud.create_user(user=user)
+    user_with_role = UserCreate(
+        **user.model_dump(),
+        role=Role.user
+    )
+    result = await crud.create_user(user=user_with_role)
     return result
-
-
 
 @router.post("/auth/login", 
     tags=["no-auth"],
@@ -58,16 +59,23 @@ async def login(
     access_token, refresh_token = await security.create_tokens(user.email, 
                                                         {"role": user.role})
     
-    response.set_cookie(security.security_config.JWT_ACCESS_COOKIE_NAME, access_token, samesite='strict')
-    response.set_cookie(security.security_config.JWT_REFRESH_COOKIE_NAME, refresh_token, samesite='strict')
+    response.set_cookie(key = security.security_config.JWT_ACCESS_COOKIE_NAME, value = access_token, path = security.security_config.JWT_ACCESS_COOKIE_PATH, samesite='strict')
+    response.set_cookie(key = security.security_config.JWT_REFRESH_COOKIE_NAME, value = refresh_token, path = security.security_config.JWT_REFRESH_COOKIE_PATH, samesite='strict')
     return {"detail": "Tokens set in cookies"}
 
 ###################################################### auth
 
 @router.post("/auth/refresh",
-    tags=["authenticated"])
-async def refresh_access_token():
-    pass
+    tags=["authenticated"],
+    dependencies=[Depends(require_refresh)]    
+)
+async def refresh_access_token(
+    request: Request,
+    response: Response,
+):
+    access_token = await security.refresh_access_token(request.state.sub, request.state.data)
+    response.set_cookie(security.security_config.JWT_ACCESS_COOKIE_NAME, access_token, samesite='strict')
+    return {"detail": "Access token refreshed"}
 
 
 
@@ -80,7 +88,7 @@ async def logout_func(response: Response):
     tags=["authenticated"],
 )
 async def logout(
-    response: Response
+    response: Response,
 ):
     await logout_func(response)
     return {"detail": "Cookies removed"}
@@ -88,106 +96,114 @@ async def logout(
 
 
 @router.get("/me", 
-    #response_model=UserSchema, 
     tags=["authenticated"],
-    dependencies=[Depends(get_current_user)],
+    response_model=UserCreate,
+    dependencies=[Depends(require_access)],
 )
 async def read_profile(
     request: Request,
-    #current_user: dict = Depends(get_current_user),
-    #current_user: UserSchema = Depends(get_current_user),
 ):
-    return {"detail": f"{request.state.sub, request.state.role}"}
+    user = await crud.get_user_by_email(email=request.state.sub)
+    return user
 
 
 
 @router.put("/me",
     tags=["authenticated"],
     summary="Requires fresh access tokens",
+    dependencies=[Depends(require_fresh_access)],
 )
-async def update_profile():
-    pass
+async def update_profile(
+    request: Request, 
+    password_form: Password,
+):
+    user = await crud.get_user_by_email(request.state.sub)
+    await crud.update_user(user, password_form.password)
+    return {"detail": "Password changed"}
 
 
 
 @router.delete("/me", 
     tags=["authenticated"],
     summary="Requires fresh access tokens",
+    dependencies=[Depends(require_fresh_access)],
 )
 async def delete_profile(
-    response: Response
+    request: Request,
+    response: Response,
 ):
-    # сделать удаление профиля
+    user = await crud.get_user_by_email(request.state.sub)
+    await crud.delete_user(user)
     await logout_func(response)
-    return {"detail": "Cookies removed"}
+    return {"detail": "User deleted"}
 
-####################################################### admin
+# ####################################################### admin
 
-@router.get("/",
-    response_model=list[UserSchema],
-    tags=["admin"],
-    #dependencies=[Depends(get_current_user)],
-)
-async def read_users(
-    skip: int = 0, 
-    limit: int = 100
-):
-    users = await crud.get_users(skip=skip, limit=limit)
-    return users
-
-
-
-@router.post("/", 
-    response_model=UserSchema, 
-    tags=["admin"],
-)
-async def create_user(
-    user: UserCreate
-):
-    db_user = await crud.get_user_by_email(email=user.email)
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    result = await crud.create_user(user=user)
-    return result
+# @router.get("/",
+#     response_model=list[UserSchema],
+#     tags=["admin"],
+#     #dependencies=[Depends(get_current_user)],
+# )
+# async def read_users(
+#     skip: int = 0, 
+#     limit: int = 100
+# ):
+#     users = await crud.get_users(skip=skip, limit=limit)
+#     return users
 
 
 
-@router.get("/{user_id}", 
-    response_model=UserSchema, 
-    tags=["admin"],
-)
-async def read_user(user_id: int):
-    db_user = await crud.get_user(user_id=user_id)
-    if db_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
-    return db_user
+# @router.post("/", 
+#     response_model=UserSchema, 
+#     tags=["admin"],
+# )
+# async def create_user(
+#     user: UserCreate
+# ):
+#     db_user = await crud.get_user_by_email(email=user.email)
+#     if db_user:
+#         raise HTTPException(status_code=400, detail="Email already registered")
+#     result = await crud.create_user(user=user)
+#     return result
 
 
 
-@router.put("/{user_id}", 
-    response_model=UserSchema, 
-    tags=["admin"],
-)
-async def change_user(user_id: int):
-    # поменять
-    pass
-    # db_user = await crud.get_user(user_id=user_id)
-    # if db_user is None:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-    #     )
-    # return db_user
+# @router.get("/{user_id}", 
+#     response_model=UserSchema, 
+#     tags=["admin"],
+# )
+# async def read_user(user_id: int):
+#     db_user = await crud.get_user(user_id=user_id)
+#     if db_user is None:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+#         )
+#     return db_user
 
 
 
-@router.delete("/{user_id}", 
-    tags=["admin"]
-)
-async def remove_user(user_id: int):
-    db_user = await crud.get_user(user_id=user_id)
-    if not db_user:
-        raise HTTPException(status_code=400, detail="User not found")
-    await crud.delete_user(user=db_user)
-    return {"detail": f"User with id {user_id} successfully deleted"}
+# @router.put("/{user_id}", 
+#     response_model=UserSchema, 
+#     tags=["admin"],
+# )
+# async def change_user(user_id: int):
+#     # поменять
+#     pass
+#     # db_user = await crud.get_user(user_id=user_id)
+#     # if db_user is None:
+#     #     raise HTTPException(
+#     #         status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+#     #     )
+#     # return db_user
+
+
+
+# @router.delete("/{user_id}", 
+#     tags=["admin"]
+# )
+# async def remove_user(user_id: int):
+#     db_user = await crud.get_user(user_id=user_id)
+#     if not db_user:
+#         raise HTTPException(status_code=400, detail="User not found")
+#     await crud.delete_user(user=db_user)
+#     return {"detail": f"User with id {user_id} successfully deleted"}
