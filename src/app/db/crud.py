@@ -33,7 +33,7 @@ async def create_user(user: UserCreate):
         hashed_password = await security.get_password_hash(user.password)
         print(user)
         db_user = UsersORM(
-            email=user.email, hashed_password=hashed_password, role="user"
+            email=user.email, hashed_password=hashed_password, role=user.role
         )
         session.add(db_user)
         await session.commit()

@@ -16,10 +16,28 @@ from src.app.api.deps import require_access, require_fresh_access, require_refre
 
 router = APIRouter()
 
-@router.post("/startup")
+@router.post("/startup",
+    summary="Remove table if exists and create again",
+)
 async def create_tables():
     users = await crud.create_tables()
     return users
+
+@router.post("/make_admin",
+    response_model=UserSchema, 
+)
+async def make_admin(
+    user: UserAuth,
+):
+    db_user = await crud.get_user_by_email(email=user.email)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user_with_role = UserCreate(
+        **user.model_dump(),
+        role=Role.admin
+    )
+    result = await crud.create_user(user=user_with_role)
+    return result
 
 ###################################################### no-auth
 
@@ -28,7 +46,7 @@ async def create_tables():
     tags=["no-auth"],
 )
 async def register(
-    user: UserAuth
+    user: UserAuth,
 ):
     db_user = await crud.get_user_by_email(email=user.email)
     if db_user:
@@ -139,17 +157,17 @@ async def delete_profile(
 
 # ####################################################### admin
 
-# @router.get("/",
-#     response_model=list[UserSchema],
-#     tags=["admin"],
-#     #dependencies=[Depends(get_current_user)],
-# )
-# async def read_users(
-#     skip: int = 0, 
-#     limit: int = 100
-# ):
-#     users = await crud.get_users(skip=skip, limit=limit)
-#     return users
+@router.get("/",
+    response_model=list[UserSchema],
+    tags=["admin"],
+    dependencies=[Depends(require_role("admin"))],
+)
+async def read_users(
+    skip: int = 0, 
+    limit: int = 100
+):
+    users = await crud.get_users(skip=skip, limit=limit)
+    return users
 
 
 

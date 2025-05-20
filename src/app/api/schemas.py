@@ -6,7 +6,7 @@ class Role(str, Enum):
     admin = "admin"
 
 class Password(BaseModel):
-    password: str = Field(min_length=3, default="12345")
+    password: str = Field(min_length=5, default="12345")
 
 class UserBase(BaseModel):
     email: EmailStr = "test@mail.ru"
