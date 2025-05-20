@@ -47,9 +47,9 @@ async def delete_user(user: UsersORM):
         await session.commit()
         return None
     
-async def update_user(user: UsersORM, new_password: str):
+async def update_user(user_id: int, new_password: str):
     async with async_session_factory() as session:
-        user_instance = await session.get(UsersORM, user.id)
+        user_instance = await session.get(UsersORM, user_id)
         print(f"\n\n{user_instance.hashed_password}\n\n")
         user_instance.hashed_password = await security.get_password_hash(new_password)
         print(f"\n\n{user_instance.hashed_password}\n\n")

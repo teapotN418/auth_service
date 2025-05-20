@@ -34,9 +34,12 @@ async def require_refresh(request: Request):
             detail=f"{e}"
         )
 
-def require_role(required_role: str):
+def require_role(required_role: str, fresh: bool = False):
     async def role_checker(request: Request):
-        await require_access(request)
+        if fresh:
+            await require_fresh_access(request)
+        else:
+            await require_access(request)
         if request.state.data.get("role") != required_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

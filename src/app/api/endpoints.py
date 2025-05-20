@@ -136,7 +136,7 @@ async def update_profile(
     password_form: Password,
 ):
     user = await crud.get_user_by_email(request.state.sub)
-    await crud.update_user(user, password_form.password)
+    await crud.update_user(user.id, password_form.password)
     return {"detail": "Password changed"}
 
 
@@ -171,57 +171,59 @@ async def read_users(
 
 
 
-# @router.post("/", 
-#     response_model=UserSchema, 
-#     tags=["admin"],
-# )
-# async def create_user(
-#     user: UserCreate
-# ):
-#     db_user = await crud.get_user_by_email(email=user.email)
-#     if db_user:
-#         raise HTTPException(status_code=400, detail="Email already registered")
-#     result = await crud.create_user(user=user)
-#     return result
+@router.post("/", 
+    response_model=UserSchema, 
+    tags=["admin"],
+    dependencies=[Depends(require_role("admin"))],
+)
+async def create_user(
+    user: UserCreate
+):
+    db_user = await crud.get_user_by_email(email=user.email)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    result = await crud.create_user(user=user)
+    return result
 
 
 
-# @router.get("/{user_id}", 
-#     response_model=UserSchema, 
-#     tags=["admin"],
-# )
-# async def read_user(user_id: int):
-#     db_user = await crud.get_user(user_id=user_id)
-#     if db_user is None:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-#         )
-#     return db_user
+@router.get("/{user_id}", 
+    response_model=UserSchema, 
+    tags=["admin"],
+    dependencies=[Depends(require_role("admin"))],
+)
+async def read_user(user_id: int):
+    db_user = await crud.get_user(user_id=user_id)
+    if db_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return db_user
 
 
 
-# @router.put("/{user_id}", 
-#     response_model=UserSchema, 
-#     tags=["admin"],
-# )
-# async def change_user(user_id: int):
-#     # поменять
-#     pass
-#     # db_user = await crud.get_user(user_id=user_id)
-#     # if db_user is None:
-#     #     raise HTTPException(
-#     #         status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-#     #     )
-#     # return db_user
+@router.put("/{user_id}", 
+    tags=["admin"],
+    dependencies=[Depends(require_role("admin"))],
+)
+async def change_user(user_id: int, password_form: Password):
+    db_user = await crud.get_user(user_id=user_id)
+    if db_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    await crud.update_user(user_id, password_form.password)
+    return {"detail": f"Password of user {user_id} changed"}
 
 
 
-# @router.delete("/{user_id}", 
-#     tags=["admin"]
-# )
-# async def remove_user(user_id: int):
-#     db_user = await crud.get_user(user_id=user_id)
-#     if not db_user:
-#         raise HTTPException(status_code=400, detail="User not found")
-#     await crud.delete_user(user=db_user)
-#     return {"detail": f"User with id {user_id} successfully deleted"}
+@router.delete("/{user_id}", 
+    tags=["admin"],
+    dependencies=[Depends(require_role("admin"))],
+)
+async def remove_user(user_id: int):
+    db_user = await crud.get_user(user_id=user_id)
+    if not db_user:
+        raise HTTPException(status_code=400, detail="User not found")
+    await crud.delete_user(user=db_user)
+    return {"detail": f"User with id {user_id} successfully deleted"}
