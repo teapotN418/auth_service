@@ -1,11 +1,14 @@
 from fastapi import Depends, HTTPException, status, Request
 from src.app.core.security import security_obj
 
+async def set_response_state(request: Request, payload):
+    request.state.sub = payload.sub
+    request.state.data = payload.model_dump(include="role")
+
 async def require_access(request: Request):
     try:
         payload = await security_obj.access_token_required(request)
-        request.state.sub = payload.sub
-        request.state.data = payload.model_dump(include="role")
+        await set_response_state(request, payload)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -15,8 +18,7 @@ async def require_access(request: Request):
 async def require_fresh_access(request: Request):
     try:
         payload = await security_obj.fresh_token_required(request)
-        request.state.sub = payload.sub
-        request.state.data = payload.model_dump(include="role")
+        await set_response_state(request, payload)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -26,8 +28,7 @@ async def require_fresh_access(request: Request):
 async def require_refresh(request: Request):
     try:
         payload = await security_obj.refresh_token_required(request)
-        request.state.sub = payload.sub
-        request.state.data = payload.model_dump(include="role")
+        await set_response_state(request, payload)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

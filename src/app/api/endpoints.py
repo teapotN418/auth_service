@@ -16,12 +16,12 @@ from src.app.api.deps import require_access, require_fresh_access, require_refre
 
 router = APIRouter()
 
-@router.post("/startup",
-    summary="Remove table if exists and create again",
-)
-async def create_tables():
-    users = await crud.create_tables()
-    return users
+# @router.post("/startup",
+#     summary="Remove table if exists and create again",
+# )
+# async def create_tables():
+#     await crud.create_tables()
+#     return {"detail": "Tokens set in cookies"}
 
 @router.post("/make_admin",
     response_model=UserShow, 
@@ -122,6 +122,10 @@ async def read_profile(
     request: Request,
 ):
     user = await crud.get_user_by_email(email=request.state.sub)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     return user
 
 
@@ -136,6 +140,10 @@ async def update_profile(
     password_form: Password,
 ):
     user = await crud.get_user_by_email(request.state.sub)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     await crud.update_user(user.id, password_form.password)
     return {"detail": "Password changed"}
 
@@ -151,6 +159,10 @@ async def delete_profile(
     response: Response,
 ):
     user = await crud.get_user_by_email(request.state.sub)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     await crud.delete_user(user)
     await logout_func(response)
     return {"detail": "User deleted"}
