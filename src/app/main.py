@@ -1,7 +1,7 @@
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
 
 import src.app.api.endpoints as endpoints
-#from app.api.endpoints import users
 from src.app.core.config import settings
 
 tags_metadata = [
@@ -10,9 +10,24 @@ tags_metadata = [
     {"name": "admin", "description": "Operations for admins only"},
 ]
 
+origins = [
+    "*",
+]
+
 app = FastAPI(
+    title=settings.PROJECT_NAME,
+    description=settings.DESCRIPTION,
+    version=settings.VERSION,
     openapi_tags=tags_metadata,
-    docs_url="/"
+    docs_url="/",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["DELETE", "GET", "POST", "PUT"],
+    allow_headers=["*"],
 )
 
 app.include_router(endpoints.router, prefix="/users")

@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import HTTPException, status, Request
 from src.app.core.security import security_obj
 
 async def set_response_state(request: Request, payload):

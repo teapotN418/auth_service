@@ -31,7 +31,7 @@ async def make_admin(
 ):
     db_user = await crud.get_user_by_email(email=user.email)
     if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     user_with_role = UserCreate(
         **user.model_dump(),
         role=Role.admin
@@ -50,7 +50,7 @@ async def register(
 ):
     db_user = await crud.get_user_by_email(email=user.email)
     if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     user_with_role = UserCreate(
         **user.model_dump(),
         role=Role.user
@@ -193,7 +193,7 @@ async def create_user(
 ):
     db_user = await crud.get_user_by_email(email=user.email)
     if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     result = await crud.create_user(user=user)
     return result
 
@@ -211,8 +211,6 @@ async def read_user(user_id: int):
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     return db_user
-
-
 
 @router.put("/{user_id}", 
     tags=["admin"],
@@ -236,6 +234,8 @@ async def change_user(user_id: int, password_form: Password):
 async def remove_user(user_id: int):
     db_user = await crud.get_user(user_id=user_id)
     if not db_user:
-        raise HTTPException(status_code=400, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     await crud.delete_user(user=db_user)
     return {"detail": f"User with id {user_id} successfully deleted"}
