@@ -17,5 +17,6 @@ class UserAuth(Password, UserBase):
 class UserCreate(UserAuth):
     role: Role = Role.user
 
-class UserSchema(UserCreate):
+class UserShow(UserBase):
+    role: Role
     id: int

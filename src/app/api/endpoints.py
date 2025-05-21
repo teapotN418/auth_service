@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from fastapi import status
 from fastapi import Response
 
-from src.app.api.schemas import UserAuth, UserCreate, UserSchema, Role, Password
+from src.app.api.schemas import UserAuth, UserCreate, UserShow, Role, Password
 from src.app.core import security
 from src.app.db import crud
 from src.app.api.deps import require_access, require_fresh_access, require_refresh, require_role
@@ -24,7 +24,7 @@ async def create_tables():
     return users
 
 @router.post("/make_admin",
-    response_model=UserSchema, 
+    response_model=UserShow, 
 )
 async def make_admin(
     user: UserAuth,
@@ -42,7 +42,7 @@ async def make_admin(
 ###################################################### no-auth
 
 @router.post("/register", 
-    response_model=UserSchema, 
+    response_model=UserShow, 
     tags=["no-auth"],
 )
 async def register(
@@ -158,7 +158,7 @@ async def delete_profile(
 # ####################################################### admin
 
 @router.get("/",
-    response_model=list[UserSchema],
+    response_model=list[UserShow],
     tags=["admin"],
     dependencies=[Depends(require_role("admin"))],
 )
@@ -172,7 +172,7 @@ async def read_users(
 
 
 @router.post("/", 
-    response_model=UserSchema, 
+    response_model=UserShow, 
     tags=["admin"],
     dependencies=[Depends(require_role("admin"))],
 )
@@ -188,7 +188,7 @@ async def create_user(
 
 
 @router.get("/{user_id}", 
-    response_model=UserSchema, 
+    response_model=UserShow, 
     tags=["admin"],
     dependencies=[Depends(require_role("admin"))],
 )
