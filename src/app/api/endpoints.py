@@ -85,7 +85,7 @@ async def login(
 
 @router.post("/auth/refresh",
     tags=["authenticated"],
-    dependencies=[Depends(require_refresh)]    
+    dependencies=[Depends(require_refresh)],    
 )
 async def refresh_access_token(
     request: Request,

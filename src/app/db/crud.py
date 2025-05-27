@@ -5,10 +5,10 @@ from sqlalchemy import select, delete, update
 
 from src.app.db.setup import async_session_factory, async_engine, Base
 
-async def create_tables():
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+# async def create_tables():
+#     async with async_engine.begin() as conn:
+#         await conn.run_sync(Base.metadata.drop_all)
+#         await conn.run_sync(Base.metadata.create_all)
 
 async def get_user(user_id: int):
     async with async_session_factory() as session:
@@ -50,9 +50,7 @@ async def delete_user(user: UsersORM):
 async def update_user(user_id: int, new_password: str):
     async with async_session_factory() as session:
         user_instance = await session.get(UsersORM, user_id)
-        print(f"\n\n{user_instance.hashed_password}\n\n")
         user_instance.hashed_password = await security.get_password_hash(new_password)
-        print(f"\n\n{user_instance.hashed_password}\n\n")
         await session.commit()
         await session.refresh(user_instance)
         return None

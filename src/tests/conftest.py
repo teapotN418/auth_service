@@ -1,5 +1,3 @@
-from fastapi.testclient import TestClient
+from src.app.core.config import settings
 
-from src.app.main import app
-
-client = TestClient(app)
+baseurl = "http://localhost:" + settings.BACKEND_PORT

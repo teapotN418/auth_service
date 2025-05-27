@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     VERSION: str = PYPROJECT_CONTENT["version"]
     DESCRIPTION: str = PYPROJECT_CONTENT["description"]
 
+    BACKEND_PORT: str
+
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_HOST: str
