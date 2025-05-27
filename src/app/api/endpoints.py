@@ -1,7 +1,3 @@
-from fastapi import APIRouter
-
-router = APIRouter()
-
 from fastapi import APIRouter, Request
 from fastapi import BackgroundTasks
 from fastapi import Depends
@@ -12,7 +8,7 @@ from fastapi import Response
 from src.app.api.schemas import UserAuth, UserCreate, UserShow, Role, Password
 from src.app.core import security
 from src.app.db import crud
-from src.app.api.deps import require_access, require_fresh_access, require_refresh, require_role
+from src.app.api.deps import require_access, require_fresh_access, require_refresh, require_role, get_db, AsyncSession
 
 router = APIRouter()
 
@@ -28,15 +24,16 @@ router = APIRouter()
 )
 async def make_admin(
     user: UserAuth,
+    db: AsyncSession = Depends(get_db),
 ):
-    db_user = await crud.get_user_by_email(email=user.email)
+    db_user = await crud.get_user_by_email(email=user.email, session=db)
     if db_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     user_with_role = UserCreate(
         **user.model_dump(),
         role=Role.admin
     )
-    result = await crud.create_user(user=user_with_role)
+    result = await crud.create_user(user=user_with_role, session=db)
     return result
 
 ###################################################### no-auth
@@ -47,15 +44,16 @@ async def make_admin(
 )
 async def register(
     user: UserAuth,
+    db: AsyncSession = Depends(get_db),
 ):
-    db_user = await crud.get_user_by_email(email=user.email)
+    db_user = await crud.get_user_by_email(email=user.email, session=db)
     if db_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     user_with_role = UserCreate(
         **user.model_dump(),
         role=Role.user
     )
-    result = await crud.create_user(user=user_with_role)
+    result = await crud.create_user(user=user_with_role, session=db)
     return result
 
 @router.post("/auth/login", 
@@ -64,24 +62,24 @@ async def register(
 async def login(
     response: Response,
     form_data: UserAuth,
+    db: AsyncSession = Depends(get_db),
 ):
-    user = await security.authenticate_user(
-        email=form_data.email, password=form_data.password
-    )
+    user = await security.authenticate_user(email=form_data.email, password=form_data.password, session=db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password"
         )
     
-    access_token, refresh_token = await security.create_tokens(user.email, 
-                                                        {"role": user.role})
+    access_token, refresh_token = await security.create_tokens(user.email, {"role": user.role})
     
-    response.set_cookie(key = security.security_config.JWT_ACCESS_COOKIE_NAME, value = access_token, path = security.security_config.JWT_ACCESS_COOKIE_PATH, samesite='strict')
-    response.set_cookie(key = security.security_config.JWT_REFRESH_COOKIE_NAME, value = refresh_token, path = security.security_config.JWT_REFRESH_COOKIE_PATH, samesite='strict')
+    response.set_cookie(key = security.security_config.JWT_ACCESS_COOKIE_NAME, 
+                        value = access_token, path = security.security_config.JWT_ACCESS_COOKIE_PATH, samesite='strict')
+    response.set_cookie(key = security.security_config.JWT_REFRESH_COOKIE_NAME, 
+                        value = refresh_token, path = security.security_config.JWT_REFRESH_COOKIE_PATH, samesite='strict')
     return {"detail": "Tokens set in cookies"}
 
-###################################################### auth
+# ###################################################### auth
 
 @router.post("/auth/refresh",
     tags=["authenticated"],
@@ -120,8 +118,9 @@ async def logout(
 )
 async def read_profile(
     request: Request,
+    db: AsyncSession = Depends(get_db),
 ):
-    user = await crud.get_user_by_email(email=request.state.sub)
+    user = await crud.get_user_by_email(email=request.state.sub, session=db)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
@@ -138,13 +137,14 @@ async def read_profile(
 async def update_profile(
     request: Request, 
     password_form: Password,
+    db: AsyncSession = Depends(get_db),
 ):
-    user = await crud.get_user_by_email(request.state.sub)
+    user = await crud.get_user_by_email(request.state.sub, session=db)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
-    await crud.update_user(user.id, password_form.password)
+    await crud.update_user(user.id, password_form.password, session=db)
     return {"detail": "Password changed"}
 
 
@@ -157,17 +157,18 @@ async def update_profile(
 async def delete_profile(
     request: Request,
     response: Response,
+    db: AsyncSession = Depends(get_db),
 ):
-    user = await crud.get_user_by_email(request.state.sub)
+    user = await crud.get_user_by_email(request.state.sub, session=db)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
-    await crud.delete_user(user)
+    await crud.delete_user(user, session=db)
     await logout_func(response)
     return {"detail": "User deleted"}
 
-# ####################################################### admin
+# # ####################################################### admin
 
 @router.get("/",
     response_model=list[UserShow],
@@ -176,9 +177,10 @@ async def delete_profile(
 )
 async def read_users(
     skip: int = 0, 
-    limit: int = 100
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
 ):
-    users = await crud.get_users(skip=skip, limit=limit)
+    users = await crud.get_users(skip=skip, limit=limit, session=db)
     return users
 
 
@@ -187,14 +189,16 @@ async def read_users(
     response_model=UserShow, 
     tags=["admin"],
     dependencies=[Depends(require_role("admin"))],
+    
 )
 async def create_user(
-    user: UserCreate
+    user: UserCreate,
+    db: AsyncSession = Depends(get_db),
 ):
-    db_user = await crud.get_user_by_email(email=user.email)
+    db_user = await crud.get_user_by_email(email=user.email, session=db)
     if db_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-    result = await crud.create_user(user=user)
+    result = await crud.create_user(user=user, session=db)
     return result
 
 
@@ -204,8 +208,11 @@ async def create_user(
     tags=["admin"],
     dependencies=[Depends(require_role("admin"))],
 )
-async def read_user(user_id: int):
-    db_user = await crud.get_user(user_id=user_id)
+async def read_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    db_user = await crud.get_user(user_id=user_id, session=db)
     if db_user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
@@ -216,13 +223,17 @@ async def read_user(user_id: int):
     tags=["admin"],
     dependencies=[Depends(require_role("admin"))],
 )
-async def change_user(user_id: int, password_form: Password):
-    db_user = await crud.get_user(user_id=user_id)
+async def change_user(
+    user_id: int, 
+    password_form: Password,
+    db: AsyncSession = Depends(get_db),
+):
+    db_user = await crud.get_user(user_id=user_id, session=db)
     if db_user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
-    await crud.update_user(user_id, password_form.password)
+    await crud.update_user(user_id, password_form.password, session=db)
     return {"detail": f"Password of user {user_id} changed"}
 
 
@@ -231,11 +242,14 @@ async def change_user(user_id: int, password_form: Password):
     tags=["admin"],
     dependencies=[Depends(require_role("admin"))],
 )
-async def remove_user(user_id: int):
-    db_user = await crud.get_user(user_id=user_id)
+async def remove_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    db_user = await crud.get_user(user_id=user_id, session=db)
     if not db_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
-    await crud.delete_user(user=db_user)
+    await crud.delete_user(user=db_user, session=db)
     return {"detail": f"User with id {user_id} successfully deleted"}

@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 import tomllib
 from pathlib import Path
 

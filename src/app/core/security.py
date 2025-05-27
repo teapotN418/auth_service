@@ -2,7 +2,7 @@ from authx import AuthX, AuthXConfig
 from passlib.context import CryptContext
 
 from src.app.core.config import settings
-from src.app.db import crud
+from src.app.db.crud import get_user_by_email, AsyncSession
 
 security_config = AuthXConfig(
     JWT_ALGORITHM="HS256",
@@ -23,8 +23,8 @@ async def verify_password(plain_password, hashed_password):
 async def get_password_hash(password):
     return pwd_context.hash(password)
 
-async def authenticate_user(email: str, password: str):
-    user = await crud.get_user_by_email(email)
+async def authenticate_user(email: str, password: str, session: AsyncSession):
+    user = await get_user_by_email(email, session)
 
     if not user:
         return False

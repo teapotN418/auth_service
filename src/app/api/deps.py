@@ -1,5 +1,16 @@
 from fastapi import HTTPException, status, Request
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import AsyncGenerator
+
 from src.app.core.security import security_obj
+from src.app.db.setup import async_session_factory
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_factory() as session:
+        try:
+            yield session
+        finally:
+            session.close()
 
 async def set_response_state(request: Request, payload):
     request.state.sub = payload.sub

@@ -10,7 +10,7 @@ async_engine = create_async_engine(
     echo=True
 )
 
-async_session_factory = async_sessionmaker(async_engine)
+async_session_factory = async_sessionmaker(autocommit=False, autoflush=False, bind=async_engine)
 
 class Base(DeclarativeBase):
     pass

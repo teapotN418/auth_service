@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Annotated
+
 from src.app.db.setup import Base
 
 intpk = Annotated[int, mapped_column(primary_key=True, autoincrement=True)]
