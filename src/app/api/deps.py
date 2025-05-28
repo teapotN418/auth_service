@@ -7,10 +7,7 @@ from src.app.db.setup import async_session_factory
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_factory() as session:
-        try:
-            yield session
-        finally:
-            session.close()
+        yield session
 
 async def set_response_state(request: Request, payload):
     request.state.sub = payload.sub

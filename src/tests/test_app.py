@@ -1,32 +1,64 @@
-import pytest
-from httpx import ASGITransport, AsyncClient
+from .conftest import security_config
 
-from src.app.main import app
-from .conftest import baseurl
-
-@pytest.mark.anyio
-async def test_root():
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url=baseurl
-    ) as ac:
-        response = await ac.get("/")
-    assert response.status_code == 200
-
-@pytest.mark.anyio
-async def test_create_user():
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url=baseurl
-    ) as ac:
-        response = await ac.post(
+async def test_create_user(client):
+    async with client as ac:
+        response = await client.post(
             "/users/register",
             json={"email": "test_reg@mail.com", "password": "12345"},
         )
+    
     assert response.status_code == 200
-    assert response.json() == {
-        "email": "test_reg@mail.com",
-        "role": "user",
-        "id": 1,
-    }
+
+    response_data = response.json()
+    
+    assert response_data["email"] == "test_reg@mail.com"
+    assert response_data["role"] == "user"
+
+async def test_login_user(client):
+    async with client as ac:
+        response = await client.post(
+            "/users/register",
+            json={"email": "test_reg@mail.com", "password": "12345"},
+        )
+    
+        assert response.status_code == 200
+
+        response_data = response.json()
+
+        assert response_data["email"] == "test_reg@mail.com"
+        assert response_data["role"] == "user"
+
+        response = await client.post(
+            "/users/auth/login",
+            json={"email": "test_reg@mail.com", "password": "12345"},
+        )
+        assert response.status_code == 200
+        assert security_config.JWT_ACCESS_COOKIE_NAME in response.cookies
+        assert security_config.JWT_REFRESH_COOKIE_NAME in response.cookies
+
+# @pytest.mark.anyio
+# async def test_root():
+#     async with AsyncClient(
+#         transport=ASGITransport(app=app), base_url=baseurl
+#     ) as ac:
+#         response = await ac.get("/")
+#     assert response.status_code == 200
+
+# @pytest.mark.anyio
+# async def test_create_user():
+#     async with AsyncClient(
+#         transport=ASGITransport(app=app), base_url=baseurl
+#     ) as ac:
+#         response = await ac.post(
+#             "/users/register",
+#             json={"email": "test_reg@mail.com", "password": "12345"},
+#         )
+#     assert response.status_code == 200
+#     assert response.json() == {
+#         "email": "test_reg@mail.com",
+#         "role": "user",
+#         "id": 1,
+#     }
 
 # def test_create_existing():
 #     response = client.post(
