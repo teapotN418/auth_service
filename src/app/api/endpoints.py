@@ -64,8 +64,9 @@ async def login(
     form_data: UserAuth,
     db: AsyncSession = Depends(get_db),
 ):
-    user = await security.authenticate_user(email=form_data.email, password=form_data.password, session=db)
-    if not user:
+    user = await crud.get_user_by_email(form_data.email, session=db)
+
+    if not user or not await security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password"

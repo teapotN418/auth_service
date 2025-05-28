@@ -2,10 +2,9 @@ from authx import AuthX, AuthXConfig
 from passlib.context import CryptContext
 
 from src.app.core.config import settings
-from src.app.db.crud import get_user_by_email, AsyncSession
 
 security_config = AuthXConfig(
-    JWT_ALGORITHM="HS256",
+    JWT_ALGORITHM=settings.ALGORITHM,
     JWT_SECRET_KEY=settings.SECRET_KEY,
     JWT_TOKEN_LOCATION=["cookies"],
     JWT_COOKIE_CSRF_PROTECT = False,
@@ -22,17 +21,6 @@ async def verify_password(plain_password, hashed_password):
 
 async def get_password_hash(password):
     return pwd_context.hash(password)
-
-async def authenticate_user(email: str, password: str, session: AsyncSession):
-    user = await get_user_by_email(email, session)
-
-    if not user:
-        return False
-    
-    if not await verify_password(password, user.hashed_password):
-        return False
-    
-    return user
 
 async def create_tokens(email: str, data: dict):
     to_encode = data.copy()
