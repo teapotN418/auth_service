@@ -19,7 +19,7 @@ router = APIRouter()
 #     await crud.create_tables()
 #     return {"detail": "Tokens set in cookies"}
 
-@router.post("/make_admin",
+@router.post("/admin",
     response_model=UserShow, 
 )
 async def make_admin(
@@ -170,7 +170,7 @@ async def delete_profile(
 
 # # ####################################################### admin
 
-@router.get("/",
+@router.get("",
     response_model=list[UserShow],
     tags=["admin"],
     dependencies=[Depends(require_role("admin"))],
@@ -185,7 +185,7 @@ async def read_users(
 
 
 
-@router.post("/", 
+@router.post("", 
     response_model=UserShow, 
     tags=["admin"],
     dependencies=[Depends(require_role("admin"))],
